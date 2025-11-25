@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مولد أوامر FFmpeg</title>
+    <meta name="theme-color" content="#FFFFFF">
+    
+    <style>
+        /* ============================================================
+           إعدادات التصميم (Clean & Flat)
+           ============================================================ */
+        *, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background-color: #f3f4f6; 
+            color: #1f2937; 
+            margin: 0; 
+            min-height: 100vh; 
+            padding: 20px; 
+        }
+
+        .container { 
+            background-color: #ffffff; 
+            width: 100%; 
+            max-width: 650px; 
+            padding: 30px; 
+            border-radius: 25px; 
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04); 
+            margin: 0 auto; 
+        }
+        
+        h1 { text-align: center; color: #2563eb; margin: 0 0 25px 0; font-size: 1.8rem; }
+
+        /* ============================================================
+           زر التبديل (Switch)
+           ============================================================ */
+        .toggle-container { 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            margin-bottom: 25px; 
+            gap: 12px; 
+            padding: 0;
+            border: none;
+            background: transparent;
+        }
+        
+        .toggle-label { font-size: 0.95rem; font-weight: 600; color: #4b5563; cursor: pointer; }
+        .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .3s; border-radius: 34px; }
+        .slider:before { 
+            position: absolute; content: ""; height: 18px; width: 18px; 
+            right: 3px; bottom: 3px; background-color: white; 
+            transition: .3s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2); 
+        }
+        
+        input:checked + .slider { background-color: #2563eb; }
+        input:checked + .slider:before { transform: translateX(-20px); }
+
+        /* ============================================================
+           نظام التبويبات
+           ============================================================ */
+        .tabs-nav {
+            display: flex;
+            background-color: #f1f5f9;
+            border-radius: 15px;
+            padding: 5px;
+            margin-bottom: 25px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: #64748b;
+            border-radius: 12px;
+            transition: color 0.2s ease;
+        }
+
+        .tab-btn.active {
+            background-color: #ffffff;
+            color: #2563eb;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+        }
+
+        .tab-content { display: none; animation: fadeIn 0.3s ease; }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* ============================================================
+           عناصر الإدخال والقوائم
+           ============================================================ */
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: 700; font-size: 0.9rem; color: #4b5563; }
+
+        input[type="text"], 
+        input[type="number"],
+        .custom-select__trigger {
+            width: 100%;
+            height: 54px; 
+            padding: 0 20px;
+            border: 2px solid #f3f4f6;
+            border-radius: 15px;
+            background-color: #f9fafb;
+            color: #3b3b3b;
+            font-size: 0.95rem;
+            font-weight: 500;
+            outline: none;
+            display: flex;
+            align-items: center;
+        }
+
+        input:focus,
+        .custom-select.open .custom-select__trigger {
+            border-color: #2563eb !important;
+            background-color: #ffffff !important;
+            box-shadow: none !important;
+        }
+        
+        input:hover, .custom-select__trigger:hover { 
+            border-color: #cbd5e1; 
+            background-color: #f9fafb;
+        }
+
+        /* حقول الإدخال الإضافية */
+        .full-code-inputs {
+            display: none;
+            margin-top: 10px;
+            animation: fadeIn 0.3s ease;
+        }
+        .full-code-inputs.active { display: block; }
+
+        /* القوائم المنسدلة */
+        select { display: none; } 
+        .custom-select-wrapper { position: relative; user-select: none; width: 100%; }
+        .custom-select { position: relative; display: flex; flex-direction: column; }
+        .custom-select__trigger { justify-content: space-between; cursor: pointer; }
+        
+        .arrow { position: relative; height: 7px; width: 7px; margin-left: 5px; }
+        .arrow::before, .arrow::after { content: ""; position: absolute; bottom: 0px; width: 2px; height: 100%; transition: all 0.2s; background-color: #6b7280; }
+        .arrow::before { left: -2px; transform: rotate(-45deg); }
+        .arrow::after { left: 2px; transform: rotate(45deg); }
+        .custom-select.open .arrow::before { transform: rotate(-135deg); }
+        .custom-select.open .arrow::after { transform: rotate(135deg); }
+        
+        .custom-options { 
+            position: absolute; display: block; top: 100%; left: 0; right: 0; 
+            background: #fff; border-radius: 15px; 
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15); 
+            margin-top: 8px; border: 1px solid #f1f5f9; 
+            opacity: 0; visibility: hidden; pointer-events: none; 
+            transform: translateY(-10px); transition: opacity 0.2s, transform 0.2s; 
+            z-index: 9999; 
+            max-height: 250px; 
+            overflow-y: auto;
+            scrollbar-width: none; 
+            -ms-overflow-style: none;
+        }
+        
+        .custom-options::-webkit-scrollbar { display: none; width: 0; height: 0; }
+        .custom-select.open .custom-options { opacity: 1; visibility: visible; pointer-events: all; transform: translateY(0); }
+        
+        .custom-option { position: relative; display: block; padding: 12px 20px; font-size: 0.95rem; color: #3b3b3b; cursor: pointer; }
+        
+        .custom-option:hover { 
+            background-color: transparent; 
+            color: inherit;
+        }
+        
+        .custom-option.selected { background-color: #2563eb; color: #fff; }
+        .custom-option.selected:hover { background-color: #2563eb; color: #fff; }
+
+        /* ============================================================
+           النتائج والأزرار
+           ============================================================ */
+        .result-container { margin-top: 30px; }
+        
+        .result-box { 
+            background-color: #1e293b; color: #10b981; 
+            padding: 20px; border-radius: 15px; 
+            font-family: 'Consolas', monospace; font-size: 0.9rem; line-height: 1.6;
+            word-break: break-all; direction: ltr; 
+            margin-bottom: 20px; white-space: pre-wrap;
+        }
+        
+        .btn-group { display: flex; gap: 15px; }
+        
+        .action-btn { 
+            flex: 1; height: 54px; padding: 0 20px; border-radius: 14px; 
+            cursor: pointer; font-size: 0.95rem; font-weight: 700; 
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            transition: opacity 0.2s; outline: none;
+        }
+
+        .btn-primary { background-color: #2563eb; color: white; border: none; }
+        .btn-primary:hover { opacity: 0.9; }
+        
+        .btn-secondary { background-color: transparent; color: #2563eb; border: 2px solid #2563eb; }
+        .btn-secondary:hover { background-color: transparent; opacity: 0.8; }
+
+        #copyMessage {
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(20px);
+            background-color: #10b981; color: white; padding: 12px 30px; border-radius: 50px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2); font-weight: 600; font-size: 0.95rem;
+            opacity: 0; transition: all 0.3s; z-index: 10000; pointer-events: none;
+        }
+        #copyMessage.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+        @media all and (display-mode: standalone) {
+            .container { margin-top: 0.10cm !important; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>مولد أوامر FFmpeg</h1>
+    
+    <!-- زر التبديل للكود الكامل -->
+    <div class="toggle-container">
+        <span class="toggle-label" onclick="document.getElementById('fullCmdMode').click()">تفعيل الكود الكامل (للحاسوب)</span>
+        <label class="switch">
+            <input type="checkbox" id="fullCmdMode" onchange="toggleFullMode()">
+            <span class="slider"></span>
+        </label>
+    </div>
+
+    <!-- التبويبات -->
+    <div class="tabs-nav">
+        <button class="tab-btn active" onclick="switchTab('audioTab')">ترميز صوتي</button>
+        <button class="tab-btn" onclick="switchTab('videoTab')">ترميز فيديو</button>
+    </div>
+
+    <!-- Audio Tab -->
+    <div id="audioTab" class="tab-content active">
+        <div class="form-group">
+            <label>اختر ترميز الصوت</label>
+            <select id="audioCodec" class="native-select" onchange="updateAudioUI()">
+                <option value="libmp3lame">MP3 (libmp3lame)</option>
+                <option value="libopus">Opus (libopus)</option>
+                <option value="libfdk_aac_low">AAC-LC (libfdk_aac)</option>
+                <option value="libfdk_aac_he">HE-AAC v1 (libfdk_aac)</option>
+                <option value="libfdk_aac_he_v2">HE-AAC v2 (libfdk_aac)</option>
+                <option value="libvorbis">Vorbis (libvorbis)</option>
+                <option value="flac">FLAC</option>
+            </select>
+        </div>
+
+        <div class="form-group" id="grp-audio-mode">
+            <label>نمط معدل البت</label>
+            <select id="audioBitrateMode" class="native-select" onchange="updateAudioUI()">
+                <option value="cbr">ثابت (CBR)</option>
+                <option value="vbr">متغير (VBR/Quality)</option>
+            </select>
+        </div>
+
+        <div class="form-group" id="grp-audio-val">
+            <div id="audio-cbr-input" style="display:none;">
+                <label>أدخل معدل البت (Bitrate)</label>
+                <input type="text" id="inpAudioCbr" placeholder="مثال: 128k, 320k" oninput="generateCommand()">
+            </div>
+            <div id="audio-vbr-select" style="display:none;">
+                <label>اختر مستوى الجودة</label>
+                <select id="selAudioVbr" class="native-select" onchange="generateCommand()">
+                    <!-- Auto-filled -->
+                </select>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>معدل العينة (Sample Rate)</label>
+            <select id="audioSampleRate" class="native-select" onchange="generateCommand()">
+                <option value="8000">8000 Hz</option>
+                <option value="12000">12000 Hz</option>
+                <option value="16000">16000 Hz</option>
+                <option value="22050">22050 Hz</option>
+                <option value="32000">32000 Hz</option>
+                <option value="44100" selected>44100 Hz</option>
+                <option value="48000">48000 Hz</option>
+                <option value="96000">96000 Hz</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label>عدد القنوات (Channels)</label>
+            <select id="audioChannels" class="native-select" onchange="generateCommand()">
+                <option value="1">1 (Mono)</option>
+                <option value="2" selected>2 (Stereo)</option>
+                <option value="6">5.1 (Surround)</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Video Tab -->
+    <div id="videoTab" class="tab-content">
+        <div class="form-group">
+            <label>اختر ترميز الفيديو</label>
+            <select id="videoCodec" class="native-select" onchange="updateVideoUI()">
+                <option value="libx264">H.264 (libx264)</option>
+                <option value="libx265">H.265 (libx265)</option>
+                <option value="libaom-av1">AV1 (libaom-av1)</option>
+            </select>
+        </div>
+
+        <div class="form-group" id="grp-video-profile">
+            <label>ملف التعريف (Profile)</label>
+            <select id="videoProfile" class="native-select" onchange="generateCommand()">
+                <!-- Auto-filled -->
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>نمط الجودة</label>
+            <select id="videoBitrateMode" class="native-select" onchange="updateVideoUI()">
+                <option value="crf" selected>CRF (جودة ثابتة)</option>
+                <option value="cbr">Bitrate (معدل بت ثابت)</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <div id="video-cbr-input" style="display:none;">
+                <label>أدخل معدل البت للفيديو</label>
+                <input type="text" id="inpVideoCbr" placeholder="مثال: 2M, 4000k" oninput="generateCommand()">
+            </div>
+            <div id="video-crf-select" style="display:block;">
+                <label>اختر قيمة CRF</label>
+                <select id="selVideoCrf" class="native-select" onchange="generateCommand()">
+                    <!-- Auto-filled -->
+                </select>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>عدد الإطارات (FPS)</label>
+            <input type="number" id="videoFps" value="30" placeholder="مثال: 30, 60" oninput="generateCommand()">
+        </div>
+    </div>
+
+    <!-- حقول الكود الكامل -->
+    <div id="fullCodeInputs" class="full-code-inputs">
+        <div class="form-group">
+            <label>مسار ملف الإدخال (Input)</label>
+            <input type="text" id="inputPath" value="input.mp4" oninput="generateCommand()">
+        </div>
+        <div class="form-group">
+            <label>مسار ملف الإخراج (Output)</label>
+            <input type="text" id="outputPath" value="output.mp4" oninput="generateCommand()">
+        </div>
+    </div>
+
+    <!-- Results -->
+    <div class="result-container">
+        <label>الأمر الناتج</label>
+        <div class="result-box" id="outputCmd">...</div>
+        
+        <div class="btn-group">
+            <button class="action-btn btn-primary" id="copyButton">نسخ الأمر</button>
+            <button class="action-btn btn-secondary" id="exportJsonButton">تصدير JSON</button>
+        </div>
+    </div>
+</div>
+<div id="copyMessage">تم النسخ بنجاح!</div>
+
+<script>
+    /* Data */
+    const audioQualityData = {
+        libmp3lame: [
+            {v:"0", t:"V0 ~220-260kbps (Best)"}, {v:"1", t:"V1 ~200-240kbps"},
+            {v:"2", t:"V2 ~170-210kbps (Recommended)"}, {v:"3", t:"V3 ~150-190kbps"},
+            {v:"4", t:"V4 ~140-180kbps (High)"}, {v:"5", t:"V5 ~120-160kbps"},
+            {v:"6", t:"V6 ~110-150kbps (Good)"}, {v:"7", t:"V7 ~90-130kbps"},
+            {v:"8", t:"V8 ~80-120kbps (Acceptable)"}, {v:"9", t:"V9 ~60-100kbps"}
+        ],
+        libfdk_aac_low: [
+            {v:"5", t:"VBR 5 (Best)"}, {v:"4", t:"VBR 4 (High)"}, 
+            {v:"3", t:"VBR 3 (Medium)"}, {v:"2", t:"VBR 2 (Good)"}, 
+            {v:"1", t:"VBR 1 (Low)"}
+        ],
+        libvorbis: [
+            {v:"10", t:"q10 (Max)"}, {v:"9", t:"q9 ~320kbps"}, {v:"8", t:"q8 ~256kbps"},
+            {v:"7", t:"q7 ~224kbps"}, {v:"6", t:"q6 ~192kbps"}, {v:"5", t:"q5 ~160kbps"},
+            {v:"4", t:"q4 ~128kbps"}, {v:"3", t:"q3 ~112kbps"}, {v:"2", t:"q2 ~96kbps"},
+            {v:"1", t:"q1 ~80kbps"}, {v:"0", t:"q0 ~64kbps"}
+        ]
+    };
+    audioQualityData.libfdk_aac_he = audioQualityData.libfdk_aac_low;
+    audioQualityData.libfdk_aac_he_v2 = audioQualityData.libfdk_aac_low;
+
+    const videoData = {
+        libx264: {
+            profiles: [
+                {v:'baseline', t:'Baseline'}, {v:'main', t:'Main'}, {v:'high', t:'High'},
+                {v:'high10', t:'High10'}, {v:'high422', t:'High422'}, {v:'high444', t:'High444'}
+            ],
+            crf: [
+                {v:"18", t:"CRF 18 (Visually Lossless)"}, {v:"20", t:"CRF 20 (Very High)"},
+                {v:"23", t:"CRF 23 (Default)"}, {v:"26", t:"CRF 26 (Medium)"},
+                {v:"29", t:"CRF 29 (Acceptable)"}
+            ]
+        },
+        libx265: {
+            profiles: [
+                {v:'main', t:'Main'}, {v:'main10', t:'Main10'}
+            ],
+            crf: [
+                {v:"20", t:"CRF 20 (Very High)"}, {v:"24", t:"CRF 24 (High)"},
+                {v:"28", t:"CRF 28 (Default)"}, {v:"32", t:"CRF 32 (Medium)"},
+                {v:"36", t:"CRF 36 (Low)"}
+            ]
+        },
+        'libaom-av1': {
+            profiles: [],
+            crf: [
+                {v:"18", t:"CRF 18 (Ultra)"}, {v:"23", t:"CRF 23 (Excellent)"},
+                {v:"28", t:"CRF 28 (Very High)"}, {v:"32", t:"CRF 32 (High)"},
+                {v:"36", t:"CRF 36 (Medium)"}, {v:"40", t:"CRF 40 (Acceptable)"},
+                {v:"45", t:"CRF 45 (Low)"}, {v:"50", t:"CRF 50 (Very Low)"}
+            ]
+        }
+    };
+
+    /* Logic */
+    let activeTabId = 'audioTab';
+
+    function toggleFullMode() {
+        const isFull = document.getElementById('fullCmdMode').checked;
+        const inputsDiv = document.getElementById('fullCodeInputs');
+        
+        if (isFull) inputsDiv.classList.add('active');
+        else inputsDiv.classList.remove('active');
+        
+        generateCommand();
+    }
+
+    function switchTab(tabId) {
+        activeTabId = tabId;
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        const btnIndex = tabId === 'audioTab' ? 0 : 1;
+        document.querySelectorAll('.tab-btn')[btnIndex].classList.add('active');
+
+        if(tabId === 'audioTab') updateAudioUI();
+        else updateVideoUI();
+    }
+
+    function buildCustomSelect(selectElement) {
+        const parent = selectElement.parentNode;
+        const existing = parent.querySelector('.custom-select-wrapper');
+        if(existing) existing.remove();
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'custom-select-wrapper';
+        
+        const customSelect = document.createElement('div');
+        customSelect.className = 'custom-select';
+
+        const trigger = document.createElement('div');
+        trigger.className = 'custom-select__trigger';
+        
+        const selOption = selectElement.options[selectElement.selectedIndex];
+        trigger.innerHTML = `<span>${selOption ? selOption.text : 'اختر...'}</span> <div class="arrow"></div>`;
+        
+        const optionsDiv = document.createElement('div');
+        optionsDiv.className = 'custom-options';
+        
+        Array.from(selectElement.options).forEach(opt => {
+            const div = document.createElement('div');
+            div.className = 'custom-option';
+            div.textContent = opt.text;
+            div.dataset.value = opt.value;
+            if(opt.selected) div.classList.add('selected');
+            
+            div.onclick = (e) => {
+                selectElement.value = div.dataset.value;
+                selectElement.dispatchEvent(new Event('change'));
+                trigger.querySelector('span').textContent = div.textContent;
+                optionsDiv.querySelectorAll('.custom-option').forEach(o => o.classList.remove('selected'));
+                div.classList.add('selected');
+                customSelect.classList.remove('open');
+                e.stopPropagation();
+            };
+            optionsDiv.appendChild(div);
+        });
+
+        customSelect.appendChild(trigger);
+        customSelect.appendChild(optionsDiv);
+        wrapper.appendChild(customSelect);
+        parent.insertBefore(wrapper, selectElement.nextSibling);
+
+        trigger.onclick = (e) => {
+            document.querySelectorAll('.custom-select').forEach(s => { if(s!==customSelect) s.classList.remove('open')});
+            customSelect.classList.toggle('open');
+            e.stopPropagation();
+        };
+    }
+
+    function initSelects() {
+        document.querySelectorAll('.native-select').forEach(buildCustomSelect);
+    }
+    window.onclick = (e) => {
+        if(!e.target.closest('.custom-select')) {
+            document.querySelectorAll('.custom-select').forEach(s => s.classList.remove('open'));
+        }
+    };
+
+    function updateAudioUI() {
+        const codec = document.getElementById('audioCodec').value;
+        const mode = document.getElementById('audioBitrateMode').value;
+        const grpMode = document.getElementById('grp-audio-mode');
+        const inpCbr = document.getElementById('audio-cbr-input');
+        const inpVbr = document.getElementById('audio-vbr-select');
+        const selVbr = document.getElementById('selAudioVbr');
+
+        if (codec === 'flac') {
+            grpMode.style.display = 'none';
+            document.getElementById('grp-audio-val').style.display = 'none';
+        } else {
+            grpMode.style.display = 'block';
+            document.getElementById('grp-audio-val').style.display = 'block';
+
+            if (mode === 'cbr' || codec === 'libopus') { 
+                inpCbr.style.display = 'block';
+                inpVbr.style.display = 'none';
+                if(codec === 'libopus') {
+                     document.getElementById('inpAudioCbr').placeholder = "مثال: 64k, 96k, 128k";
+                }
+            } else {
+                inpCbr.style.display = 'none';
+                inpVbr.style.display = 'block';
+                
+                const opts = audioQualityData[codec] || [];
+                selVbr.innerHTML = '';
+                if (opts.length > 0) {
+                    opts.forEach(o => {
+                        const opt = document.createElement('option');
+                        opt.value = o.v; opt.text = o.t;
+                        selVbr.appendChild(opt);
+                    });
+                    if(codec==='libmp3lame') selVbr.value = "2";
+                    if(codec.includes('aac')) selVbr.value = "3";
+                    buildCustomSelect(selVbr);
+                } else {
+                    inpCbr.style.display = 'block';
+                    inpVbr.style.display = 'none';
+                }
+            }
+        }
+        generateCommand();
+    }
+
+    function updateVideoUI() {
+        const codec = document.getElementById('videoCodec').value;
+        const mode = document.getElementById('videoBitrateMode').value;
+        
+        const profileSel = document.getElementById('videoProfile');
+        const profiles = videoData[codec].profiles;
+        profileSel.innerHTML = '';
+        if(profiles.length > 0) {
+            document.getElementById('grp-video-profile').style.display = 'block';
+            profiles.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.v; opt.text = p.t;
+                profileSel.appendChild(opt);
+            });
+            buildCustomSelect(profileSel);
+        } else {
+            document.getElementById('grp-video-profile').style.display = 'none';
+        }
+
+        const cbrDiv = document.getElementById('video-cbr-input');
+        const crfDiv = document.getElementById('video-crf-select');
+        const crfSel = document.getElementById('selVideoCrf');
+
+        if(mode === 'cbr') {
+            cbrDiv.style.display = 'block';
+            crfDiv.style.display = 'none';
+        } else {
+            cbrDiv.style.display = 'none';
+            crfDiv.style.display = 'block';
+            
+            const crfVals = videoData[codec].crf;
+            crfSel.innerHTML = '';
+            crfVals.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.v; opt.text = c.t;
+                crfSel.appendChild(opt);
+            });
+            if(codec === 'libx264') crfSel.value = "23";
+            if(codec === 'libx265') crfSel.value = "28";
+            if(codec === 'libaom-av1') crfSel.value = "32"; 
+
+            buildCustomSelect(crfSel);
+        }
+        generateCommand();
+    }
+
+    function generateCommand() {
+        let cmd = [];
+        let ext = '';
+        const isFull = document.getElementById('fullCmdMode').checked;
+        
+        if (activeTabId === 'audioTab') {
+            const codec = document.getElementById('audioCodec').value;
+            const mode = document.getElementById('audioBitrateMode').value;
+            const sr = document.getElementById('audioSampleRate').value;
+            const ch = document.getElementById('audioChannels').value;
+
+            if(codec === 'libfdk_aac_low') { cmd.push('-c:a libfdk_aac -profile:a aac_low'); ext='m4a'; }
+            else if(codec === 'libfdk_aac_he') { cmd.push('-c:a libfdk_aac -profile:a aac_he'); ext='m4a'; }
+            else if(codec === 'libfdk_aac_he_v2') { cmd.push('-c:a libfdk_aac -profile:a aac_he_v2'); ext='m4a'; }
+            else if(codec === 'flac') { cmd.push('-c:a flac'); ext='flac'; }
+            else if(codec === 'libvorbis') { cmd.push('-c:a libvorbis'); ext='ogg'; }
+            else if(codec === 'libopus') { cmd.push('-c:a libopus'); ext='opus'; }
+            else { cmd.push(`-c:a ${codec}`); ext='mp3'; }
+
+            if(codec !== 'flac') {
+                if(mode === 'cbr' || codec === 'libopus') {
+                    const val = document.getElementById('inpAudioCbr').value.trim() || '128k';
+                    cmd.push(`-b:a ${val}`);
+                    // Opus logic for Hard CBR
+                    if(codec === 'libopus' && mode === 'cbr') {
+                        cmd.push('-vbr off');
+                    } else if(codec === 'libopus') {
+                        cmd.push('-vbr on');
+                    }
+                } else {
+                    const val = document.getElementById('selAudioVbr').value;
+                    if(codec === 'libmp3lame') cmd.push(`-q:a ${val}`);
+                    else if(codec.includes('aac')) cmd.push(`-vbr ${val}`);
+                    else if(codec === 'libvorbis') cmd.push(`-qscale:a ${val}`);
+                }
+            }
+            cmd.push(`-ar ${sr}`);
+            cmd.push(`-ac ${ch}`);
+        
+        } else {
+            const codec = document.getElementById('videoCodec').value;
+            const mode = document.getElementById('videoBitrateMode').value;
+            const fps = document.getElementById('videoFps').value;
+            
+            cmd.push(`-c:v ${codec}`);
+            ext = 'mp4';
+            
+            if(document.getElementById('grp-video-profile').style.display !== 'none') {
+                 cmd.push(`-profile:v ${document.getElementById('videoProfile').value}`);
+            }
+
+            if(mode === 'cbr') {
+                const val = document.getElementById('inpVideoCbr').value.trim() || '2M';
+                cmd.push(`-b:v ${val}`);
+            } else {
+                const val = document.getElementById('selVideoCrf').value;
+                cmd.push(`-crf ${val}`);
+                // إضافة -b:v 0 لضمان عمل CRF بشكل صحيح مع AV1
+                if(codec === 'libaom-av1') cmd.push('-b:v 0');
+            }
+            if(fps) cmd.push(`-r ${fps}`);
+            cmd.push('-c:a libfdk_aac -profile:a aac_he -b:a 64k');
+        }
+
+        let finalString = cmd.join(' ');
+
+        if (isFull) {
+            const inPath = document.getElementById('inputPath').value.trim() || 'input.mp4';
+            const outPath = document.getElementById('outputPath').value.trim() || 'output.' + ext;
+            finalString = `ffmpeg -i "${inPath}" ${finalString} "${outPath}"`;
+        }
+
+        document.getElementById('outputCmd').textContent = finalString;
+
+        const json = [{
+            prname: activeTabId === 'audioTab' ? "Audio Preset" : "Video Preset",
+            prpatern: cmd.join(' '),
+            prext: ext
+        }];
+        document.getElementById('exportJsonButton').dataset.json = JSON.stringify(json, null, 2);
+    }
+
+    document.getElementById('copyButton').onclick = () => {
+        navigator.clipboard.writeText(document.getElementById('outputCmd').textContent);
+        const msg = document.getElementById('copyMessage');
+        msg.classList.add('show');
+        setTimeout(() => msg.classList.remove('show'), 2000);
+    };
+
+    document.getElementById('exportJsonButton').onclick = function() {
+        const data = this.dataset.json;
+        if(!data) return;
+        const blob = new Blob([data], {type: 'application/json'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'ffmpeg_preset.json';
+        a.click();
+    };
+
+    initSelects();
+    updateAudioUI();
+</script>
+</body>
+</html>
